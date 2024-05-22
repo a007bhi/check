@@ -3,7 +3,7 @@ import axios from "axios";
 import apiUrl from "../../config/config";
 import classnames from "classnames";
 import $ from "jquery";
-import './patientinfo.css'
+import Modal from 'react-modal';
 
 import { MDBDataTable } from "mdbreact";
 import ProgressBtn from "../../components/common/ProgressButton";
@@ -13,6 +13,9 @@ import Dropdown from "react-dropdown";
 import "react-dropdown/style.css";
 import LinearProgress from "@material-ui/core/LinearProgress";
 import { FormatAlignLeft } from "@material-ui/icons";
+Modal.setAppElement('#root');
+
+
 
 class PatientInfo extends Component {
   constructor() {
@@ -22,14 +25,17 @@ class PatientInfo extends Component {
 
       profileLink: "verifier-profile",
       patients: [],
-      currentPage:1,
-
+      serial_no: "",
+      currentPage: 1,
+      totalPages: 10,
       errors: {},
       userid: "",
 
       hospital: "",
-      phone: "",
+      ip_op: "",
+      BatteryPercentage: "",
       patient_name: "",
+      phone: "",
 
       indication: "",
 
@@ -39,23 +45,28 @@ class PatientInfo extends Component {
       data: {},
       prog_data: 0,
       loading: false,
-      technician: "",
       time: "",
-      supportT: "NA",
-      supportP: "nil",
-      priority: "medium",
-      payment: "Unpaid",
+      RecordingStatus: "",
+      serial_no:"",
+      device_id: "",
+      Mac_id: "",
+      customer_details: "",
+
       activity: "Rest",
       act_duration: "5",
       addNote: "",
     };
     this.selectItem = this.selectItem.bind(this);
     this.preventDefault = this.preventDefault.bind(this);
+    this.fetchPatients = this.fetchPatients.bind(this);
+    this.handlePageChange = this.handlePageChange.bind(this);
+    
+    
   }
 
   componentDidMount() {
-    this.fetchPatients(this.state.currentPage)
     function capitalizeFirstLetter(string) {
+      
       return string.charAt(0).toUpperCase() + string.slice(1);
     }
     var newstat = this;
@@ -78,12 +89,14 @@ class PatientInfo extends Component {
       .catch((err) => {
         this.setState({ ["doctors"]: [] });
       });
-
+    
     axios
-      .get(apiUrl + "api/users/getVerifierPatientsNewmodal?page=")
+      
+      .get(apiUrl + "api/users/getVerifierPatientsNewmodal?page=2")
       .then((res) => {
         this.setState({
           patients: res.data,
+          customerDetails: res.data.map(patient => patient.customer_details)
         });
 
         console.log(res.data);
@@ -99,6 +112,12 @@ class PatientInfo extends Component {
             {
               label: "PATIENT NAME",
               field: "patientName",
+              sort: "asc",
+              width: 200,
+            },
+            {
+              label: "Trigger",
+              field: "Trigger",
               sort: "asc",
               width: 200,
             },
@@ -128,10 +147,16 @@ class PatientInfo extends Component {
               width: 100,
             },
             {
-              label: "Priority",
-              field: "priority",
+              label: "Mac ID",
+              field: "Mac_id",
               sort: "asc",
-              width: 100,
+              width: 200,
+            },
+            {
+              label: "Battery Percentage",
+              field: "BatteryPercentage",
+              sort: "disabled",
+              width: 200,
             },
             {
               label: "Symptoms",
@@ -140,28 +165,28 @@ class PatientInfo extends Component {
               width: 200,
             },
             {
-              label: "Technician",
-              field: "technician",
+              label: "IP/OP",
+              field: "ip_op",
               sort: "asc",
               width: 200,
             },
             {
-              label: "Support Staff",
-              field: "SupportP",
+              label: "Patient ID",
+              field: "device_id",
               sort: "asc",
-              width: 100,
+              width: 200,
             },
             {
-              label: "Support Time",
-              field: "SupportT",
+              label: "Recording Status",
+              field: "RecordingStatus",
               sort: "asc",
-              width: 100,
+              width: 200,
             },
             {
-              label: "Payment",
-              field: "payment",
+              label: "Customer",
+              field: "customer_details",
               sort: "asc",
-              width: 100,
+              width: 200,
             },
 
             {
@@ -175,13 +200,13 @@ class PatientInfo extends Component {
               label: "Status",
               field: "status",
               sort: "disabled",
-              width: 100,
+              width: 200,
             },
             {
               label: "Action",
               field: "action",
               sort: "disabled",
-              width: 100,
+              width: 200,
             },
             {
               label: "Diary",
@@ -208,7 +233,7 @@ class PatientInfo extends Component {
         const defaultOption = options[0];
         res.data.map(function (patient, i) {
           var url = " ";
-          if (patient.LastDatasetId != undefined) {
+          if (patient.LastDatasetId !== undefined) {
             if (
               patient.backup_status == 0 ||
               patient.backup_status == undefined
@@ -276,23 +301,81 @@ class PatientInfo extends Component {
           } else if (patient.backup_status == 2) {
             anl_btn_txt = "Retrieving";
           }
+          const recordingStatus = patient.RecordingStatus;
 
+          // Function to render status message based on RecordingStatus
+          const renderStatusMessage = () => {
+            switch (recordingStatus) {
+              case 0:
+                return " recording Not started";
+              case 1:
+                return "Recording Mode";
+              case 3:
+                return "Data uploaded";
+              default:
+                return "Unknown status";
+            }
+          };
           createdData = patient.created_at.split("T");
 
           data.rows.push({
             slno: i + 1,
             patientName: patient.name,
+
+            Trigger: (
+              <React.Fragment>
+                <a href="#">
+                  <button
+                    type="button"
+                    id={patient._id}
+                    onClick={this.Trigger}
+                    className="btn btn-warning mr-20"
+                    data-toggle="modal"
+                  >
+                    Trigger
+                  </button>
+                </a>
+              </React.Fragment>
+            ),
             doctorName: patient.doctor_name,
 
             phone: patient.phone,
             hospital: patient.hospital,
             duration: patient.exp_device_use_days,
-            priority: patient.priority,
+            Mac_id: patient.Mac_id,
+            BatteryPercentage: <YourComponent patient={patient} />,
             symptoms: patient.indication,
-            technician: "Technician Name",
-            SupportP: patient.support,
-            SupportT: patient.supportT,
-            payment: patient.payment,
+            ip_op: patient.ip_op,
+            device_id: patient.device_id,
+            RecordingStatus: renderStatusMessage(),
+            doctorName: patient.doctor_name,
+
+            phone: patient.phone,
+            hospital: patient.hospital,
+            duration: patient.exp_device_use_days,
+            Mac_id: patient.Mac_id,
+            BatteryPercentage: <YourComponent patient={patient} />,
+            symptoms: patient.indication,
+            ip_op: patient.ip_op,
+            device_id: patient.device_id,
+            RecordingStatus: renderStatusMessage(),
+            customer_details: (
+              <tr key={patient._id}>
+                <td style={{ verticalAlign: 'middle' }}>
+                  {patient.customer_details && patient.customer_details.length > 0 ? (
+                    <ul>
+                      {patient.customer_details.map((detail, index) => (
+                        <li key={index}>
+                          {detail.customer_details}<br />
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    'No customer details available'
+                  )}
+                </td>
+              </tr>
+            ),
             created: createdData[0],
             Status: (
               <React.Fragment>
@@ -418,13 +501,15 @@ class PatientInfo extends Component {
     const info = {
       userid: this.state.userid,
       hospital: this.state.hospital,
-      phone: this.state.phone,
+      ip_op: this.state.ip_op,
       doctorid: this.state.doctor_id,
       indication: this.state.indication,
-      support: this.state.supportP,
-      supportT: this.state.supportT,
-      priority: this.state.priority,
-      payment: this.state.payment,
+      phone: this.state.phone,
+      device_id: this.state.device_id,
+      RecordingStatus: this.state.RecordingStatus,
+      Mac_id: this.state.Mac_id,
+      customer_details: this.state.customer_details,
+      BatteryPercentage: this.state.BatteryPercentage,
     };
 
     axios
@@ -446,6 +531,24 @@ class PatientInfo extends Component {
   preventDefault(e) {
     e.preventDefault();
   }
+  Trigger(e) {
+    var userid = e.currentTarget.id;
+    console.log(
+      "https://web.mybiocalculus.com/html/welcome/triggeruserdata/?userid=" +
+        userid
+    );
+    axios
+      .get(
+        "https://web.mybiocalculus.com/html/welcome/triggeruserdata/?userid=" +
+          userid
+      )
+      .then((res) => {
+        console.log(res.data);
+      })
+      .catch((err) => {
+        console.log(err);
+      });
+  }
   setInfo(e) {
     var diary_id = e.currentTarget.id;
     this.state.diary_note_id = diary_id;
@@ -454,17 +557,19 @@ class PatientInfo extends Component {
      console.log("diary_id",this.state.diary_note_id);*/
   }
   getInfo(e) {
-    axios
-      .get(apiUrl + "api/users/getTechnician?userid=" + e.currentTarget.id)
-      .then((res) => {
-        this.setState({ technician: res.data[0].name });
-      })
-      .catch((err) => {});
+    /* axios.get(apiUrl+'api/users/getTechnician?userid='+e.currentTarget.id)
+          .then(res => {
+            this.setState({ technician: res.data[0].name });
+           
+        })
+          .catch(err => {
+           
+          });*/
 
     this.setState({
       smoking: "",
       diabetes: "",
-      af: "",
+      weight: "",
       hyper_tension: "",
       hyper_lipidemia: "",
       indication: "",
@@ -479,12 +584,14 @@ class PatientInfo extends Component {
         var data = res.data;
         // console.log('res.data[0].supportT',res.data[0]);
 
-        this.setState({ supportP: res.data[0].support });
-        this.setState({ supportT: res.data[0].supportT });
-        this.setState({ payment: res.data[0].payment });
-        this.setState({ priority: res.data[0].priority });
+        this.setState({ device_id: res.data[0].device_id });
+        this.setState({ RecordingStatus: res.data[0].RecordingStatus });
+        this.setState({ customer_details: res.data[0].customer_details });
+        this.setState({ Mac_id: res.data[0].Mac_id });
         this.setState({ indication: res.data[0].indication });
+        this.setState({ BatteryPercentage: res.data[0].BatteryPercentage });
         this.setState({ hospital: res.data[0].hospital });
+        this.setState({ ip_op: res.data[0].ip_op });
         this.setState({ phone: res.data[0].phone });
         this.setState({ patient_name: res.data[0].name });
         this.setState({ doctor_name: res.data[0].doctor_name });
@@ -704,7 +811,9 @@ class PatientInfo extends Component {
                         <br />
                         <div className="col-md-6 multi-horizontal">
                           <div className="form-group">
-                            <label className="form-control-label mbr-fonts-style display-7">
+                            <label className="form-control-label mbr-fonts-style display-7"
+                             style={{ color: 'Black' }}
+                             >
                               Name
                             </label>
                             <input
@@ -718,7 +827,9 @@ class PatientInfo extends Component {
                         </div>
                         <div className="col-md-6 multi-horizontal">
                           <div className="form-group">
-                            <label className="form-control-label mbr-fonts-style display-7">
+                            <label className="form-control-label mbr-fonts-style display-7"
+                             style={{ color: 'Black' }}
+                             >
                               Doctor
                             </label>
                             <select
@@ -740,7 +851,9 @@ class PatientInfo extends Component {
                         <br />
                         <div className="col-md-6 multi-horizontal">
                           <div className="form-group">
-                            <label className="form-control-label mbr-fonts-style display-7">
+                            <label className="form-control-label mbr-fonts-style display-7"
+                             style={{ color: 'Black' }}
+                             >
                               Hospital Name
                             </label>
                             <input
@@ -754,7 +867,9 @@ class PatientInfo extends Component {
                         </div>
                         <div className="col-md-6 multi-horizontal">
                           <div className="form-group">
-                            <label className="form-control-label mbr-fonts-style display-7">
+                            <label className="form-control-label mbr-fonts-style display-7"
+                             style={{ color: 'Black' }}
+                             >
                               Phone
                             </label>
                             <input
@@ -772,7 +887,9 @@ class PatientInfo extends Component {
                         <br />
                         <div className="col-md-6 multi-horizontal">
                           <div className="form-group">
-                            <label className="form-control-label mbr-fonts-style display-7">
+                            <label className="form-control-label mbr-fonts-style display-7"
+                            style={{ color: 'Black' }}
+                             >
                               Support Person
                             </label>
                             <input
@@ -786,7 +903,9 @@ class PatientInfo extends Component {
                         </div>
                         <div className="col-md-6 multi-horizontal">
                           <div className="form-group">
-                            <label className="form-control-label mbr-fonts-style display-7">
+                            <label className="form-control-label mbr-fonts-style display-7"
+                             style={{ color: 'Black' }}
+                             >
                               {" "}
                               Support Time{" "}
                             </label>
@@ -814,7 +933,9 @@ class PatientInfo extends Component {
                         <br />
                         <div className="col-md-6 multi-horizontal">
                           <div className="form-group">
-                            <label className="form-control-label mbr-fonts-style display-7">
+                            <label className="form-control-label mbr-fonts-style display-7"
+                            style={{ color: 'Black' }}
+                             >
                               Payment
                             </label>
                             <select
@@ -831,7 +952,9 @@ class PatientInfo extends Component {
                         </div>
                         <div className="col-md-6 multi-horizontal">
                           <div className="form-group">
-                            <label className="form-control-label mbr-fonts-style display-7">
+                            <label className="form-control-label mbr-fonts-style display-7"
+                             style={{ color: 'Black' }}
+                             >
                               Priority
                             </label>
                             <select
@@ -852,7 +975,9 @@ class PatientInfo extends Component {
                         <br />
                         <div className="col-md-6 multi-horizontal">
                           <div className="form-group">
-                            <label className="form-control-label mbr-fonts-style display-7">
+                            <label className="form-control-label mbr-fonts-style display-7"
+                             style={{ color: 'Black' }}
+                             >
                               Symptoms
                             </label>
                             <input
@@ -906,14 +1031,6 @@ class PatientInfo extends Component {
                         noBottomColumns
                         data={this.state.data}
                       />
-                      <div className="nxt-prev-btn">
-                        <div className="prev-btn-container">
-                          <button>Prev</button>
-                        </div>
-                        <div className="nxt-btn-container">
-                          <button>Next</button>
-                        </div>
-                      </div>
                     </div>
                   </div>
                 </div>
@@ -923,7 +1040,76 @@ class PatientInfo extends Component {
         </div>
       </div>
     );
+  
   }
 }
+class YourComponent extends Component {
+  state = {
+    showModal: false,
+    batteryPercentage: null,
+  };
+
+  BatteryPercentageClicked = (e) => {
+    var userid = e.currentTarget.id;
+    axios
+      .get('https://web.mybiocalculus.com/html/welcome/BatteryPercentage/?userid=' + userid)
+      .then(res => {
+        console.log(res.data);
+        this.setState({ batteryPercentage: res.data, showModal: true });
+      })
+      .catch(error => {
+        console.error('Error:', error);
+      });
+  }
+
+  handleCloseModal = () => {
+    this.setState({ showModal: false });
+  }
+
+  render() {
+    const { patient } = this.props;
+    const { showModal, batteryPercentage } = this.state;
+
+    return (
+      <>
+        <button
+          type="button"
+          className="btn btn-danger mr-20"
+          id={patient._id}
+          onClick={this.BatteryPercentageClicked}
+        >
+          {patient.BatteryPercentage}%
+        </button>
+
+        <Modal
+          isOpen={showModal}
+          onRequestClose={this.handleCloseModal}
+          contentLabel="Battery Percentage"
+          style={{
+            content: {
+              color: 'black',
+              width: '50%', 
+              maxWidth: '800px', 
+              margin: 'auto',
+            },
+          }}
+        >
+          <h2 style={{ color: 'black' }}>Battery Percentage</h2>
+          {batteryPercentage !== null ? (
+            <p style={{ color: 'black' }}>Battery percentage is: {batteryPercentage.split('\n').map((item, key) => {
+              return <span key={key}>{item}<br/></span>
+            })}</p>
+          ) : (
+            <p style={{ color: 'black' }}>Loading...</p>
+          )}
+          <button onClick={this.handleCloseModal}>Close</button>
+        </Modal>
+      </>
+    );
+  }
+}
+
+
+
 
 export default PatientInfo;
